@@ -1,0 +1,12 @@
+{
+  "name": "quickwa",
+  "private": true,
+  "description": "QuickWA - open a WhatsApp chat without saving the number. Static PWA on Cloudflare Workers.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

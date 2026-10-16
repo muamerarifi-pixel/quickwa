@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>QuickWA — Direct &amp; Bulk WhatsApp</title>
+  <meta name="description" content="Open a WhatsApp chat with any number without saving the contact. Direct chat, bulk queue, templates and history. 100% client-side.">
+  <meta name="theme-color" content="#0f9f6e" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1411" media="(prefers-color-scheme: dark)">
+  <meta name="application-name" content="QuickWA">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="QuickWA">
+  <meta name="format-detection" content="telephone=no">
+  <meta property="og:title" content="QuickWA — Direct & Bulk WhatsApp">
+  <meta property="og:description" content="Chat on WhatsApp without saving numbers. Fast, private, works offline.">
+  <meta property="og:image" content="/icons/icon-512.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14a6.5 6.5 0 0 1 3 6"/></g></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></g></symbol>
+      <symbol id="i-paste" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/></g></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12 20 4l-6 16-3-7-7-1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></g></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></g></symbol>
+      <symbol id="i-qr" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></g></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" fill="currentColor"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></g></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/></g></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-skip" viewBox="0 0 24 24"><path d="m6 6 8 6-8 6V6Zm12 0v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <img src="/icons/icon.svg" alt="" width="36" height="36">
+        <div>
+          <h1>QuickWA</h1>
+          <p>Chat without saving numbers</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="installBtn" class="pill" hidden>Install app</button>
+        <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="Settings"><svg><use href="#i-gear"/></svg></button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ DIRECT CHAT ============ -->
+      <section id="view-chat" class="view" data-view="chat">
+        <button id="pasteGo" class="paste-go" type="button">
+          <svg><use href="#i-paste"/></svg>
+          <span><b>Paste &amp; Chat</b><small>Copy a number anywhere, tap here — done</small></span>
+        </button>
+
+        <div class="card">
+          <label class="field-label" for="phone">Phone number</label>
+          <div class="phone-row" id="phoneRow">
+            <button id="ccBtn" class="cc-btn" type="button" aria-label="Default country code">
+              <span class="flag" id="ccFlag"></span><span id="ccDial">+383</span><svg class="chev"><use href="#i-down"/></svg>
+            </button>
+            <input id="phone" type="tel" inputmode="tel" autocomplete="off" placeholder="044 123 456" enterkeyhint="go" spellcheck="false">
+            <button id="clearPhone" class="icon-btn ghost sm" type="button" aria-label="Clear number" hidden><svg><use href="#i-x"/></svg></button>
+          </div>
+          <div id="phoneHint" class="hint">Any format works: 044…, +383…, 00383…, or a wa.me link</div>
+
+          <div class="label-row">
+            <label class="field-label" for="msg">Message <span class="muted">optional</span></label>
+            <button id="manageTpl" class="link" type="button">Templates</button>
+          </div>
+          <textarea id="msg" rows="3" placeholder="Write a message (or tap a template below)"></textarea>
+          <div class="chips" id="tplChips"></div>
+
+          <button id="openBtn" class="btn primary big" type="button">
+            <svg><use href="#i-send"/></svg><span id="openLabel">Open chat</span>
+          </button>
+          <div class="btn-row three">
+            <button id="copyBtn" class="btn soft" type="button"><svg><use href="#i-link"/></svg>Copy link</button>
+            <button id="shareBtn" class="btn soft" type="button"><svg><use href="#i-share"/></svg>Share</button>
+            <button id="qrBtn" class="btn soft" type="button"><svg><use href="#i-qr"/></svg>QR code</button>
+          </div>
+          <p class="kbd-hint desktop-only"><kbd>Enter</kbd> open chat · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> from message · <kbd>/</kbd> focus number</p>
+        </div>
+
+        <div id="recentWrap">
+          <div class="section-head">
+            <h2>Recent</h2>
+            <button class="link" type="button" data-tab="history">See all</button>
+          </div>
+          <ul id="recentQuick" class="list"></ul>
+        </div>
+      </section>
+
+      <!-- ============ BULK ============ -->
+      <section id="view-bulk" class="view" data-view="bulk" hidden>
+        <div id="resumeBanner" class="banner" hidden>
+          <span id="resumeText">You have an unfinished broadcast.</span>
+          <span class="banner-actions">
+            <button id="resumeBtn" class="btn primary sm" type="button">Resume</button>
+            <button id="discardBtn" class="btn soft sm" type="button">Discard</button>
+          </span>
+        </div>
+
+        <div id="bulkSetup">
+          <div class="card">
+            <div class="label-row">
+              <label class="field-label" for="bulkInput">Recipients</label>
+              <span class="row-actions">
+                <button id="bulkPasteBtn" class="link" type="button">Paste</button>
+                <button id="importBtn" class="link" type="button">Import CSV / TXT / VCF</button>
+              </span>
+            </div>
+            <textarea id="bulkInput" rows="6" spellcheck="false" placeholder="One per line — names are optional:&#10;Arta Krasniqi, 044 123 456&#10;+383 49 555 666&#10;John; +44 7700 900123"></textarea>
+            <input type="file" id="fileInput" accept=".csv,.txt,.vcf,.tsv,text/csv,text/plain,text/vcard,text/x-vcard" hidden>
+            <div id="bulkStats" class="hint">Paste numbers, a spreadsheet column, or a contacts file.</div>
+            <div id="bulkPreview" class="token-list"></div>
+          </div>
+
+          <div class="card">
+            <div class="label-row">
+              <label class="field-label" for="bulkMsg">Message</label>
+              <button class="link" type="button" data-manage-tpl>Templates</button>
+            </div>
+            <textarea id="bulkMsg" rows="4" placeholder="Hi {first}, …"></textarea>
+            <div class="chips vars" id="varChips">
+              <button type="button" class="chip var" data-var="{first}">{first}</button>
+              <button type="button" class="chip var" data-var="{name}">{name}</button>
+              <button type="button" class="chip var" data-var="{number}">{number}</button>
+              <button type="button" class="chip var" data-var="{index}">{index}</button>
+              <button type="button" class="chip var" data-var="{date}">{date}</button>
+            </div>
+            <div class="chips" id="bulkTplChips"></div>
+            <div id="bulkMsgPreview" class="preview" hidden></div>
+
+            <span class="field-label">After each chat</span>
+            <div class="segmented" id="advanceSeg" role="radiogroup">
+              <button type="button" data-adv="return" role="radio">Auto on return</button>
+              <button type="button" data-adv="timer" role="radio" class="desktop-only">Timer</button>
+              <button type="button" data-adv="manual" role="radio">Manual</button>
+            </div>
+            <div id="advanceHelp" class="hint"></div>
+            <div id="timerRow" class="timer-row" hidden>
+              <span>Open next chat every</span>
+              <select id="delaySel">
+                <option value="3">3 s</option><option value="5">5 s</option><option value="8">8 s</option><option value="12">12 s</option><option value="20">20 s</option>
+              </select>
+            </div>
+
+            <button id="startBulk" class="btn primary big" type="button" disabled>
+              <svg><use href="#i-send"/></svg><span id="startLabel">Add recipients to start</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="bulkRun" hidden>
+          <div class="card run-card">
+            <div class="run-top">
+              <span id="runCount" class="run-count"></span>
+              <button id="runStop" class="link" type="button">Stop &amp; edit</button>
+            </div>
+            <div class="progress"><span id="runBar"></span></div>
+
+            <div id="runCurrent" class="run-current">
+              <div class="avatar lg" id="runAvatar"></div>
+              <div class="run-who">
+                <b id="runName"></b>
+                <span id="runNumber"></span>
+              </div>
+            </div>
+            <div id="runMsg" class="preview"></div>
+
+            <button id="runPrimary" class="btn primary big" type="button"></button>
+            <div class="btn-row three">
+              <button id="runBack" class="btn soft" type="button"><svg><use href="#i-back"/></svg>Back</button>
+              <button id="runSkip" class="btn soft" type="button"><svg><use href="#i-skip"/></svg>Skip</button>
+              <button id="runReopen" class="btn soft" type="button"><svg><use href="#i-send"/></svg>Open again</button>
+            </div>
+            <div id="runTimer" class="timer-pill" hidden>
+              <span id="runTimerText"></span>
+              <button id="runPause" class="link" type="button">Pause</button>
+            </div>
+            <p class="kbd-hint desktop-only"><kbd>Enter</kbd> open / next · <kbd>S</kbd> skip · <kbd>B</kbd> back</p>
+          </div>
+
+          <div id="runDone" class="card done-card" hidden>
+            <div class="done-icon"><svg><use href="#i-check"/></svg></div>
+            <h2>Broadcast finished</h2>
+            <p id="doneSummary" class="muted"></p>
+            <div class="btn-row">
+              <button id="retrySkipped" class="btn soft" type="button">Retry skipped</button>
+              <button id="exportReport" class="btn soft" type="button">Export report</button>
+            </div>
+            <button id="newBroadcast" class="btn primary" type="button">New broadcast</button>
+          </div>
+
+          <div class="section-head"><h2>Queue</h2><span id="queueMeta" class="muted"></span></div>
+          <ul id="runList" class="list compact"></ul>
+        </div>
+      </section>
+
+      <!-- ============ HISTORY ============ -->
+      <section id="view-history" class="view" data-view="history" hidden>
+        <div class="search-row">
+          <input id="histSearch" type="search" placeholder="Search name, number or message" autocomplete="off">
+        </div>
+        <div class="section-head">
+          <h2 id="histCount">History</h2>
+          <span class="row-actions">
+            <button id="histExport" class="link" type="button">Export CSV</button>
+            <button id="histClear" class="link danger" type="button">Clear</button>
+          </span>
+        </div>
+        <ul id="historyList" class="list"></ul>
+        <div id="histEmpty" class="empty" hidden>
+          <svg><use href="#i-clock"/></svg>
+          <p>No chats yet. Numbers you open show up here — tap one to chat again instantly.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>🔒 Runs 100% on your device — nothing is uploaded.</span>
+      <span>Not affiliated with WhatsApp Inc.</span>
+    </footer>
+
+    <nav class="tabbar" role="tablist">
+      <button type="button" class="tab" data-tab="chat" role="tab"><svg><use href="#i-chat"/></svg><span>Chat</span></button>
+      <button type="button" class="tab" data-tab="bulk" role="tab"><svg><use href="#i-users"/></svg><span>Bulk</span><i class="badge" id="bulkBadge" hidden></i></button>
+      <button type="button" class="tab" data-tab="history" role="tab"><svg><use href="#i-clock"/></svg><span>History</span></button>
+    </nav>
+  </div>
+
+  <!-- Bottom sheet -->
+  <div id="sheetWrap" class="sheet-wrap" hidden>
+    <div class="sheet-backdrop" data-close></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h3 id="sheetTitle"></h3>
+        <button class="icon-btn ghost sm" type="button" data-close aria-label="Close"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/countries.js"></script>
+  <script src="/qrcode.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
