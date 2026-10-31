@@ -43,6 +43,11 @@
       <symbol id="i-file" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/></g></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-skip" viewBox="0 0 24 24"><path d="m6 6 8 6-8 6V6Zm12 0v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="15" height="18" rx="2"/><circle cx="12.5" cy="10" r="2.6"/><path d="M8.5 16.5a4 4 0 0 1 8 0M3 7h3M3 12h3M3 17h3"/></g></symbol>
+      <symbol id="i-uplus" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></g></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.4 9.2 4.5 4.5 0 0 0 7 18Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
       <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     </defs>
   </svg>
@@ -58,6 +63,7 @@
       </div>
       <div class="top-actions">
         <button id="installBtn" class="pill" hidden>Install app</button>
+        <button id="syncBtn" class="icon-btn sync-btn" data-state="off" aria-label="Cloud sync" title="Cloud sync"><svg><use href="#i-cloud"/></svg><i></i></button>
         <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="Settings"><svg><use href="#i-gear"/></svg></button>
       </div>
     </header>
@@ -78,8 +84,10 @@
             </button>
             <input id="phone" type="tel" inputmode="tel" autocomplete="off" placeholder="044 123 456" enterkeyhint="go" spellcheck="false">
             <button id="clearPhone" class="icon-btn ghost sm" type="button" aria-label="Clear number" hidden><svg><use href="#i-x"/></svg></button>
+            <button id="savePhone" class="icon-btn ghost sm save-phone" type="button" aria-label="Save contact" title="Save contact" hidden><svg><use href="#i-uplus"/></svg></button>
           </div>
           <div id="phoneHint" class="hint">Any format works: 044…, +383…, 00383…, or a wa.me link</div>
+          <div class="chips" id="phoneMatches"></div>
 
           <div class="label-row">
             <label class="field-label" for="msg">Message <span class="muted">optional</span></label>
@@ -108,6 +116,41 @@
         </div>
       </section>
 
+      <!-- ============ CONTACTS ============ -->
+      <section id="view-contacts" class="view" data-view="contacts" hidden>
+        <div class="card quick-add">
+          <span class="field-label">Quick save</span>
+          <div class="qa-row">
+            <input id="qaName" type="text" placeholder="Name" autocomplete="off" enterkeyhint="next" spellcheck="false">
+            <input id="qaPhone" type="tel" inputmode="tel" placeholder="044 123 456" autocomplete="off" enterkeyhint="done">
+            <button id="qaAdd" class="btn primary qa-add" type="button" aria-label="Save contact"><svg><use href="#i-plus"/></svg></button>
+          </div>
+          <div id="qaHint" class="hint">Type a name, press Enter, type the number, press Enter — saved.</div>
+          <div class="btn-row three">
+            <button id="cPaste" class="btn soft" type="button"><svg><use href="#i-paste"/></svg>Paste &amp; save</button>
+            <button id="cPhone" class="btn soft" type="button" hidden><svg><use href="#i-book"/></svg>From phone</button>
+            <button id="cImport" class="btn soft" type="button"><svg><use href="#i-file"/></svg>Import file</button>
+          </div>
+          <input type="file" id="cFile" accept=".csv,.txt,.vcf,.tsv,text/csv,text/plain,text/vcard,text/x-vcard" hidden>
+        </div>
+
+        <div class="search-row">
+          <input id="cSearch" type="search" placeholder="Search contacts" autocomplete="off">
+        </div>
+        <div class="section-head">
+          <h2 id="cCount">Contacts</h2>
+          <span class="row-actions">
+            <button id="cEditAll" class="link" type="button">Edit list</button>
+            <button id="cMore" class="link" type="button">More</button>
+          </span>
+        </div>
+        <ul id="contactList" class="list contacts"></ul>
+        <div id="cEmpty" class="empty" hidden>
+          <svg><use href="#i-book"/></svg>
+          <p>No contacts yet. Save numbers here once and use them on every device with Cloud sync.</p>
+        </div>
+      </section>
+
       <!-- ============ BULK ============ -->
       <section id="view-bulk" class="view" data-view="bulk" hidden>
         <div id="resumeBanner" class="banner" hidden>
@@ -124,7 +167,8 @@
               <label class="field-label" for="bulkInput">Recipients</label>
               <span class="row-actions">
                 <button id="bulkPasteBtn" class="link" type="button">Paste</button>
-                <button id="importBtn" class="link" type="button">Import CSV / TXT / VCF</button>
+                <button id="bulkFromContacts" class="link" type="button">Contacts</button>
+                <button id="importBtn" class="link" type="button">Import file</button>
               </span>
             </div>
             <textarea id="bulkInput" rows="6" spellcheck="false" placeholder="One per line — names are optional:&#10;Arta Krasniqi, 044 123 456&#10;+383 49 555 666&#10;John; +44 7700 900123"></textarea>
@@ -236,12 +280,13 @@
     </main>
 
     <footer class="foot">
-      <span>🔒 Runs 100% on your device — nothing is uploaded.</span>
+      <span id="footPrivacy">🔒 Runs on your device. Cloud sync is optional and end-to-end encrypted.</span>
       <span>Not affiliated with WhatsApp Inc.</span>
     </footer>
 
     <nav class="tabbar" role="tablist">
       <button type="button" class="tab" data-tab="chat" role="tab"><svg><use href="#i-chat"/></svg><span>Chat</span></button>
+      <button type="button" class="tab" data-tab="contacts" role="tab"><svg><use href="#i-book"/></svg><span>Contacts</span></button>
       <button type="button" class="tab" data-tab="bulk" role="tab"><svg><use href="#i-users"/></svg><span>Bulk</span><i class="badge" id="bulkBadge" hidden></i></button>
       <button type="button" class="tab" data-tab="history" role="tab"><svg><use href="#i-clock"/></svg><span>History</span></button>
     </nav>

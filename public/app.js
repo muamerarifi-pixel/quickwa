@@ -1,4 +1,4 @@
-/* QuickWA v3 — Direct & Bulk WhatsApp launcher. 100% client-side. */
+/* QuickWA v4 — Direct & Bulk WhatsApp launcher + contacts with optional encrypted cloud sync. */
 (function () {
   'use strict';
 
@@ -46,6 +46,7 @@
   var history = store.get('history', []);
   var recentCC = store.get('recentCC', []);
   var queue = store.get('queue', null);
+  var contacts = store.get('contacts', []);
 
   /* ---------------- countries ---------------- */
   var COUNTRIES = window.COUNTRIES || [];
@@ -216,6 +217,7 @@
     if (name === 'history') renderHistory();
     if (name === 'bulk') renderBulk();
     if (name === 'chat') renderRecentQuick();
+    if (name === 'contacts') { renderContacts(); if (!isMobile && !noFocus) qaName.focus(); }
     window.scrollTo(0, 0);
     store.set('tab', name);
     if (!noFocus && !isMobile && name === 'chat') $('#phone').focus();
@@ -248,6 +250,7 @@
     var hint = $('#phoneHint');
     var row = $('#phoneRow');
     $('#clearPhone').hidden = !raw;
+    $('#savePhone').hidden = true;
     row.classList.remove('valid', 'invalid');
     hint.className = 'hint';
     if (!raw) {
@@ -256,13 +259,18 @@
       var c = detectCountry(n);
       row.classList.add('valid');
       hint.className = 'hint ok';
-      hint.textContent = '✓ ' + pretty(n) + (c ? ' · ' + c.name : '');
+      var saved = contactByN(n);
+      hint.textContent = '✓ ' + (saved && saved.name ? saved.name + ' · ' : '') + pretty(n) + (c && !saved ? ' · ' + c.name : '');
+      $('#savePhone').hidden = false;
+      $('#savePhone').title = saved ? 'Edit contact' : 'Save contact';
+      $('#savePhone').classList.toggle('on', !!saved);
     } else {
       row.classList.add('invalid');
       hint.className = 'hint warn';
       hint.textContent = digits(raw).length < 6 ? 'Keep typing…' : 'This number looks incomplete — check it';
     }
     renderCC();
+    renderPhoneMatches();
     var label = $('#openLabel');
     if (!raw && msgEl.value.trim()) label.textContent = 'Send to a contact…';
     else label.textContent = 'Open chat';
@@ -442,7 +450,7 @@
   }
 
   /* ---------------- templates ---------------- */
-  function saveTemplates() { store.set('templates', templates); renderTplChips(); renderBulkTplChips(); }
+  function saveTemplates() { commit('templates'); renderTplChips(); renderBulkTplChips(); }
   function insertAtCursor(el, text) {
     var v = el.value;
     if (!v.trim()) { el.value = text; }
@@ -580,7 +588,7 @@
     var pinned = history.filter(function (h) { return h.pin; });
     var rest = history.filter(function (h) { return !h.pin; }).slice(0, 300);
     history = sortHist(pinned.concat(rest));
-    store.set('history', history);
+    commit('history');
   }
   function sortHist(arr) { return arr.sort(function (a, b) { return (b.pin - a.pin) || (b.t - a.t); }); }
   function ago(t) {
@@ -598,6 +606,8 @@
     return '<span class="avatar ' + (cls || '') + '" style="background:' + col + '">' + esc(label) + '</span>';
   }
   function histRow(h, compact) {
+    var nm = nameFor(h.n) || h.name;
+    h = Object.assign({}, h, { name: nm });
     var title = h.name || pretty(h.n);
     var sub = (h.name ? pretty(h.n) + ' · ' : '') + ago(h.t) + (h.m ? ' · ' + h.m : '');
     return '<li data-n="' + h.n + '">' +
@@ -619,7 +629,7 @@
     var qd = digits(q);
     var items = history.filter(function (h) {
       if (!q) return true;
-      return (h.name || '').toLowerCase().indexOf(q) !== -1 || (h.m || '').toLowerCase().indexOf(q) !== -1 || (qd && h.n.indexOf(qd) !== -1);
+      return (nameFor(h.n) || h.name || '').toLowerCase().indexOf(q) !== -1 || (h.m || '').toLowerCase().indexOf(q) !== -1 || (qd && h.n.indexOf(qd) !== -1);
     });
     $('#historyList').innerHTML = items.map(function (h) { return histRow(h, false); }).join('');
     $('#histEmpty').hidden = history.length > 0;
@@ -639,24 +649,29 @@
       updatePhoneUI(); saveDraft(); renderTplChips(); showTab('chat', true);
       if (!isMobile) msgEl.focus();
     } else if (act === 'pin') {
-      h.pin = !h.pin; history = sortHist(history); store.set('history', history); renderHistory();
+      h.pin = !h.pin; history = sortHist(history); commit('history'); renderHistory();
     } else if (act === 'more') {
       openSheet(h.name || pretty(n),
         '<label class="field-label" for="hName">Name / label</label><input type="text" id="hName" value="' + esc(h.name) + '" placeholder="e.g. Plumber, Arta, Client X">' +
-        '<div class="btn-row"><button class="btn primary" id="hSave" type="button">Save</button></div>' +
+        '<div class="btn-row"><button class="btn primary" id="hSave" type="button">Save label</button><button class="btn soft" id="hContact" type="button"><svg><use href="#i-uplus"/></svg>' + (contactByN(n) ? 'Edit contact' : 'Save to contacts') + '</button></div>' +
         '<div class="btn-row"><button class="btn soft" id="hCopy" type="button"><svg><use href="#i-copy"/></svg>Copy number</button><button class="btn soft" id="hQr" type="button"><svg><use href="#i-qr"/></svg>QR</button></div>' +
         '<div class="btn-row"><button class="btn soft" id="hDel" type="button" style="color:var(--danger)"><svg><use href="#i-trash"/></svg>Remove from history</button></div>',
         function (root) {
           var inp = $('#hName', root);
-          var save = function () { h.name = inp.value.trim(); store.set('history', history); closeSheet(); renderHistory(); renderRecentQuick(); };
+          var save = function () { h.name = inp.value.trim(); commit('history'); closeSheet(); renderHistory(); renderRecentQuick(); };
           $('#hSave', root).onclick = save;
+          $('#hContact', root).onclick = function () {
+            var nm = inp.value.trim() || h.name; var ex = contactByN(n);
+            if (ex) { closeSheet(); showTab('contacts'); openContactMenu(ex); return; }
+            upsertContact(nm, n); closeSheet(); renderHistory(); toast('Saved to contacts', { action: 'Open', fn: function () { showTab('contacts'); } });
+          };
           inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') save(); });
           $('#hCopy', root).onclick = function () { copyText('+' + n, 'Number copied'); };
           $('#hQr', root).onclick = function () { showQR(n, ''); };
           $('#hDel', root).onclick = function () {
-            history = history.filter(function (x) { return x.n !== n; }); store.set('history', history);
+            history = history.filter(function (x) { return x.n !== n; }); commit('history');
             closeSheet(); renderHistory(); renderRecentQuick();
-            toast('Removed', { action: 'Undo', fn: function () { history.push(h); history = sortHist(history); store.set('history', history); renderHistory(); renderRecentQuick(); } });
+            toast('Removed', { action: 'Undo', fn: function () { history.push(h); history = sortHist(history); commit('history'); renderHistory(); renderRecentQuick(); } });
           };
         });
     }
@@ -668,8 +683,8 @@
     if (!history.length) return;
     var backup = history.slice();
     var keep = history.filter(function (h) { return h.pin; });
-    history = keep; store.set('history', history); renderHistory(); renderRecentQuick();
-    toast(keep.length ? 'Cleared (pinned kept)' : 'History cleared', { action: 'Undo', fn: function () { history = backup; store.set('history', history); renderHistory(); renderRecentQuick(); } });
+    history = keep; commit('history'); renderHistory(); renderRecentQuick();
+    toast(keep.length ? 'Cleared (pinned kept)' : 'History cleared', { action: 'Undo', fn: function () { history = backup; commit('history'); renderHistory(); renderRecentQuick(); } });
   });
   $('#histExport').addEventListener('click', function () {
     if (!history.length) { toast('Nothing to export'); return; }
@@ -1008,6 +1023,701 @@
   }
 
   /* =========================================================
+     SYNCED COLLECTIONS (contacts, templates, history)
+     Every item carries u (last change). Deletions leave a tombstone,
+     so merges between devices never bring deleted items back.
+     ========================================================= */
+  function tplOrder(t) { var x = parseInt(String(t.id).slice(1), 10) || 0; return x > 1e9 ? -x : x; }
+  var KINDS = {
+    contacts: { key: function (x) { return x.id; }, get: function () { return contacts; }, set: function (a) { contacts = a; } },
+    templates: { key: function (x) { return x.id; }, get: function () { return templates; }, set: function (a) { templates = a.sort(function (p, q) { return tplOrder(p) - tplOrder(q); }); } },
+    history: { key: function (x) { return x.n; }, get: function () { return history; }, set: function (a) { history = sortHist(a); } }
+  };
+  var tombs = store.get('tombs', null) || { contacts: {}, templates: {}, history: {} };
+  var SNAP = {};
+  function sig(it) { var o = {}; Object.keys(it).sort().forEach(function (k) { if (k !== 'u') o[k] = it[k]; }); return JSON.stringify(o); }
+  function snapOf(kind) { var m = {}, K = KINDS[kind]; K.get().forEach(function (it) { m[K.key(it)] = sig(it); }); return m; }
+  (function stampOld() {
+    var cut = Date.now() - 120 * 864e5;
+    Object.keys(KINDS).forEach(function (kind) {
+      var tb = tombs[kind] || (tombs[kind] = {});
+      Object.keys(tb).forEach(function (k) { if (tb[k] < cut) delete tb[k]; });
+      KINDS[kind].get().forEach(function (it) { if (!it.u) it.u = it.t || 1; });
+      SNAP[kind] = snapOf(kind);
+    });
+  })();
+  // Save a collection: stamps changed items, tombstones removed ones, schedules a sync.
+  function commit(kind) {
+    var K = KINDS[kind], arr = K.get(), now = Date.now(), prev = SNAP[kind] || {}, tb = tombs[kind], cur = {};
+    arr.forEach(function (it) {
+      var k = K.key(it), s = sig(it); cur[k] = s;
+      if (prev[k] !== s || !it.u) it.u = now;
+      if (tb[k] && it.u <= tb[k]) it.u = tb[k] + 1;
+    });
+    Object.keys(prev).forEach(function (k) { if (!(k in cur)) tb[k] = now; });
+    SNAP[kind] = cur;
+    store.set(kind, arr); store.set('tombs', tombs);
+    Sync.changed();
+  }
+  function mergeKind(kind, la, ra, lt, rt) {
+    var K = KINDS[kind], t = {}, m = {};
+    [lt || {}, rt || {}].forEach(function (x) { Object.keys(x).forEach(function (k) { t[k] = Math.max(t[k] || 0, x[k]); }); });
+    (la || []).concat(ra || []).forEach(function (it) {
+      if (!it || typeof it !== 'object') return;
+      var k = K.key(it); if (k == null || k === '') return;
+      var o = m[k];
+      if (!o || (it.u || 0) > (o.u || 0) || ((it.u || 0) === (o.u || 0) && sig(it) > sig(o))) m[k] = it;
+    });
+    var items = Object.keys(m).map(function (k) { return m[k]; }).filter(function (it) { var k = K.key(it); return !(t[k] && t[k] >= (it.u || 0)); });
+    return { items: items, tomb: t };
+  }
+  function localDoc() { return { v: 1, contacts: contacts, templates: templates, history: history, tombs: tombs }; }
+  function mergeDocs(a, b) {
+    b = b || {};
+    var out = { v: 1, tombs: {} };
+    Object.keys(KINDS).forEach(function (kind) {
+      var r = mergeKind(kind, a[kind], b[kind], (a.tombs || {})[kind], (b.tombs || {})[kind]);
+      out[kind] = r.items; out.tombs[kind] = r.tomb;
+    });
+    return out;
+  }
+  function canon(doc) {
+    if (!doc) return '';
+    var o = {};
+    Object.keys(KINDS).forEach(function (kind) {
+      var K = KINDS[kind];
+      o[kind] = (doc[kind] || []).map(function (it) { return K.key(it) + '|' + (it.u || 0) + '|' + sig(it); }).sort();
+      var tb = (doc.tombs || {})[kind] || {};
+      o['t_' + kind] = Object.keys(tb).sort().map(function (k) { return k + ':' + tb[k]; });
+    });
+    return JSON.stringify(o);
+  }
+  function applyDoc(doc) {
+    Object.keys(KINDS).forEach(function (kind) {
+      KINDS[kind].set((doc[kind] || []).slice());
+      tombs[kind] = (doc.tombs || {})[kind] || {};
+      SNAP[kind] = snapOf(kind);
+      store.set(kind, KINDS[kind].get());
+    });
+    store.set('tombs', tombs);
+    refreshAll();
+  }
+  function refreshAll() {
+    try {
+      renderTplChips(); renderBulkTplChips(); renderRecentQuick(); updatePhoneUI();
+      if (currentTab === 'history') renderHistory();
+      if (currentTab === 'contacts' && !editAll && !$('#contactList li.editing')) renderContacts();
+      updateContactCount();
+    } catch (e) {}
+  }
+
+  /* =========================================================
+     CLOUD SYNC — code + PIN, end-to-end encrypted (AES-GCM).
+     The server only stores ciphertext under a hash of code+PIN.
+     ========================================================= */
+  var Sync = (function () {
+    var te = new TextEncoder(), td = new TextDecoder();
+    var ALPH = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
+    var cfg = store.get('sync', null);
+    var key = null, busy = false, again = false, pushT = null, state = 'off', err = '', listeners = [];
+
+    function b64(buf) { var s = '', b = new Uint8Array(buf); for (var i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+    function unb64(s) { var bin = atob(s), b = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return b; }
+    async function hex(str) { var h = await crypto.subtle.digest('SHA-256', te.encode(str)); return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
+    async function derive(code, pin) {
+      var base = await crypto.subtle.importKey('raw', te.encode(pin), 'PBKDF2', false, ['deriveKey']);
+      return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: te.encode('quickwa-sync:' + code), iterations: 150000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    }
+    async function seal(k, obj) {
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k, te.encode(JSON.stringify(obj)));
+      var out = new Uint8Array(12 + ct.byteLength); out.set(iv); out.set(new Uint8Array(ct), 12);
+      return b64(out);
+    }
+    async function open(k, s) {
+      var b = unb64(s);
+      var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(0, 12) }, k, b.slice(12));
+      return JSON.parse(td.decode(pt));
+    }
+    function cleanCode(c) { return String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1'); }
+    function fmtCode(c) { return c.slice(0, 4) + '-' + c.slice(4); }
+    function newCode() { var r = crypto.getRandomValues(new Uint8Array(8)); var s = ''; for (var i = 0; i < 8; i++) s += ALPH[r[i] % ALPH.length]; return s; }
+    async function api(method, id, body) {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var t = setTimeout(function () { ctl && ctl.abort(); }, 12000);
+      try {
+        return await fetch('/api/sync/' + id, { method: method, signal: ctl && ctl.signal, cache: 'no-store', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+      } finally { clearTimeout(t); }
+    }
+    async function getKey() {
+      if (key) return key;
+      key = await crypto.subtle.importKey('raw', unb64(cfg.k), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+      return key;
+    }
+    function setState(s, e) { state = s; err = e || ''; listeners.forEach(function (fn) { try { fn(state, err); } catch (x) {} }); }
+
+    async function run() {
+      if (!cfg) { setState('off'); return; }
+      if (!navigator.onLine) { setState('offline'); return; }
+      if (busy) { again = true; return; }
+      busy = true; setState('syncing');
+      try {
+        var k = await getKey();
+        for (var attempt = 0; attempt < 4; attempt++) {
+          var r = await api('GET', cfg.id), rv = 0, remote = null;
+          if (r.status === 200) { var j = await r.json(); rv = j.v || 0; remote = await open(k, j.data); }
+          else if (r.status !== 404) throw new Error('Server error ' + r.status);
+          var local = localDoc();
+          var merged = mergeDocs(local, remote);
+          if (canon(merged) !== canon(local)) applyDoc(merged);
+          if (remote && canon(merged) === canon(remote)) break;
+          var p = await api('PUT', cfg.id, { data: await seal(k, merged), base: rv });
+          if (p.status === 409) continue;
+          if (!p.ok) throw new Error('Upload failed (' + p.status + ')');
+          break;
+        }
+        cfg.last = Date.now(); store.set('sync', cfg);
+        setState('ok');
+      } catch (e) {
+        setState(navigator.onLine ? 'error' : 'offline', e && e.name === 'AbortError' ? 'Timed out' : (e && e.message) || 'Sync failed');
+      }
+      busy = false;
+      if (again) { again = false; setTimeout(run, 400); }
+    }
+
+    async function connect(code, pin, isNew) {
+      code = cleanCode(code); pin = digits(pin);
+      if (code.length !== 8) throw new Error('The sync code has 8 characters');
+      if (pin.length < 4 || pin.length > 8) throw new Error('PIN must be 4–8 digits');
+      if (!navigator.onLine) throw new Error('You are offline — connect to the internet first');
+      var id = await hex('quickwa-id:' + code + ':' + pin);
+      var r = await api('GET', id);
+      if (isNew && r.status === 200) throw new Error('Code already used — try again');
+      if (!isNew && r.status === 404) throw new Error('Nothing found for this code + PIN. Check both.');
+      if (!r.ok && r.status !== 404) throw new Error('Server error ' + r.status);
+      var k = await derive(code, pin);
+      if (r.status === 200) { var j = await r.json(); try { await open(k, j.data); } catch (e) { throw new Error('Wrong PIN'); } }
+      var raw = await crypto.subtle.exportKey('raw', k);
+      cfg = { code: code, id: id, k: b64(raw), since: Date.now(), last: 0 };
+      key = null; store.set('sync', cfg);
+      await run();
+      if (state !== 'ok') throw new Error(err || 'Sync failed');
+    }
+
+    function changed() {
+      if (!cfg) return;
+      clearTimeout(pushT);
+      pushT = setTimeout(run, 2000);
+    }
+    function off() { cfg = null; key = null; store.del('sync'); clearTimeout(pushT); setState('off'); }
+    async function wipe() { if (cfg) { var r = await api('DELETE', cfg.id); if (!r.ok) throw new Error('Could not delete (' + r.status + ')'); } off(); }
+
+    // triggers
+    window.addEventListener('online', function () { if (cfg) run(); });
+    window.addEventListener('offline', function () { if (cfg) setState('offline'); });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && cfg) setTimeout(run, 600); });
+    setInterval(function () { if (cfg && document.visibilityState === 'visible') run(); }, 120000);
+
+    return {
+      run: run, connect: connect, changed: changed, off: off, wipe: wipe, newCode: newCode, fmtCode: fmtCode, cleanCode: cleanCode,
+      on: function (fn) { listeners.push(fn); fn(state, err); },
+      get cfg() { return cfg; }, get state() { return state; }, get err() { return err; }
+    };
+  })();
+
+  function syncLabel(s) {
+    return ({ off: 'Off', ok: 'Synced', syncing: 'Syncing…', offline: 'Offline — will sync when back online', error: 'Sync problem' })[s] || s;
+  }
+  function lastSyncText() { var c = Sync.cfg; return c && c.last ? 'Last sync ' + ago(c.last) : 'Not synced yet'; }
+  function paintSync() {
+    var s = Sync.state, e = Sync.err;
+    var b = $('#syncBtn'); b.dataset.state = s;
+    b.title = 'Cloud sync: ' + syncLabel(s) + (e ? ' (' + e + ')' : '');
+    var st = $('#syncStateLine');
+    if (st) { st.className = 'sync-state ' + s; st.innerHTML = '<i></i>' + esc(syncLabel(s) + (e ? ' — ' + e : '')); var ls = $('#syncLast'); if (ls) ls.textContent = lastSyncText(); }
+    var sr = $('#sSyncState'); if (sr) sr.textContent = Sync.cfg ? syncLabel(s) : 'Off — data stays on this device';
+  }
+  Sync.on(paintSync);
+
+  function openSyncSheet(view, prefillCode) {
+    var c = Sync.cfg;
+    if (c && !view) {
+      openSheet('Cloud sync',
+        '<div id="syncStateLine" class="sync-state"><i></i></div>' +
+        '<p class="muted" id="syncLast" style="margin:0 0 8px;font-size:13px">' + esc(lastSyncText()) + '</p>' +
+        '<span class="field-label">Your sync code</span><div class="sync-code">' + esc(Sync.fmtCode(c.code)) + '</div>' +
+        '<p class="muted" style="font-size:13px;margin:4px 0 0">Contacts, history and templates stay the same on every device using this code + your PIN.</p>' +
+        '<div class="btn-row"><button class="btn primary" id="syNow" type="button">Sync now</button><button class="btn soft" id="syAdd" type="button"><svg><use href="#i-qr"/></svg>Add device</button></div>' +
+        '<div class="btn-row"><button class="btn soft" id="syOff" type="button">Turn off here</button><button class="btn soft" id="syWipe" type="button" style="color:var(--danger)">Delete cloud copy</button></div>',
+        function (root) {
+          paintSync();
+          $('#syNow', root).onclick = function () { Sync.run(); };
+          $('#syAdd', root).onclick = function () { showSyncQR(); };
+          $('#syOff', root).onclick = function () {
+            if (!confirm('Stop syncing on this device? Your data stays here and in the cloud.')) return;
+            Sync.off(); closeSheet(); toast('Sync turned off on this device');
+          };
+          $('#syWipe', root).onclick = async function () {
+            if (!confirm('Delete the cloud copy? Other devices keep their own data but stop syncing.')) return;
+            try { await Sync.wipe(); closeSheet(); toast('Cloud copy deleted'); } catch (e) { toast(e.message); }
+          };
+        });
+      return;
+    }
+    if (view === 'connect') {
+      openSheet('Connect this device',
+        '<p class="muted" style="font-size:14px;margin:0">Enter the sync code shown on your other device, and your PIN.</p>' +
+        '<label class="field-label" for="syCode">Sync code</label><input type="text" id="syCode" class="code-input" maxlength="9" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" value="' + esc(prefillCode ? Sync.fmtCode(Sync.cleanCode(prefillCode)) : '') + '">' +
+        '<label class="field-label" for="syPin">PIN</label><input type="tel" id="syPin" class="pin-input" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">' +
+        '<div id="syErr" class="hint warn"></div>' +
+        '<button class="btn primary big" id="syGo" type="button">Connect &amp; sync</button>',
+        function (root) {
+          var go = async function () {
+            var b = $('#syGo', root); b.disabled = true; b.textContent = 'Connecting…'; $('#syErr', root).textContent = '';
+            try { await Sync.connect($('#syCode', root).value, $('#syPin', root).value, false); closeSheet(); toast('✓ Synced — this device is connected'); }
+            catch (e) { $('#syErr', root).textContent = e.message; b.disabled = false; b.textContent = 'Connect & sync'; }
+          };
+          $('#syGo', root).onclick = go;
+          $('#syPin', root).addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+          $('#syCode', root).addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#syPin', root).focus(); });
+          setTimeout(function () { (prefillCode ? $('#syPin', root) : $('#syCode', root)).focus(); }, 80);
+        });
+      return;
+    }
+    if (view === 'create') {
+      openSheet('Turn on cloud sync',
+        '<p class="muted" style="font-size:14px;margin:0">Choose a PIN. Your data is encrypted with it on this device before upload — remember it, it can\'t be recovered.</p>' +
+        '<label class="field-label" for="syPin">New PIN (4–8 digits)</label><input type="tel" id="syPin" class="pin-input" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">' +
+        '<label class="field-label" for="syPin2">Repeat PIN</label><input type="tel" id="syPin2" class="pin-input" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">' +
+        '<div id="syErr" class="hint warn"></div>' +
+        '<button class="btn primary big" id="syGo" type="button">Turn on sync</button>',
+        function (root) {
+          var go = async function () {
+            var p1 = digits($('#syPin', root).value), p2 = digits($('#syPin2', root).value);
+            if (p1.length < 4) { $('#syErr', root).textContent = 'PIN must be at least 4 digits'; return; }
+            if (p1 !== p2) { $('#syErr', root).textContent = 'The two PINs are different'; return; }
+            var b = $('#syGo', root); b.disabled = true; b.textContent = 'Encrypting & uploading…'; $('#syErr', root).textContent = '';
+            try { await Sync.connect(Sync.newCode(), p1, true); closeSheet(); toast('✓ Sync is on'); setTimeout(showSyncQR, 300); }
+            catch (e) { $('#syErr', root).textContent = e.message; b.disabled = false; b.textContent = 'Turn on sync'; }
+          };
+          $('#syGo', root).onclick = go;
+          $('#syPin', root).addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#syPin2', root).focus(); });
+          $('#syPin2', root).addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+          setTimeout(function () { $('#syPin', root).focus(); }, 80);
+        });
+      return;
+    }
+    openSheet('Cloud sync',
+      '<p style="margin:0 0 6px;font-size:15px">Save contacts once, have them on your phone, tablet and computer.</p>' +
+      '<p class="muted" style="margin:0;font-size:13px">Syncs contacts, history and templates. Locked with your PIN and encrypted on this device — the server can\'t read it. Works offline and catches up later.</p>' +
+      '<button class="btn primary big" id="syNew" type="button"><svg><use href="#i-cloud"/></svg>Turn on sync</button>' +
+      '<button class="btn soft big" id="syHave" type="button" style="margin-top:8px">I already have a sync code</button>',
+      function (root) {
+        $('#syNew', root).onclick = function () { openSyncSheet('create'); };
+        $('#syHave', root).onclick = function () { openSyncSheet('connect'); };
+      });
+  }
+  function showSyncQR() {
+    var c = Sync.cfg; if (!c) return;
+    var link = location.origin + '/?sync=' + c.code;
+    openSheet('Add another device',
+      '<p class="muted" style="font-size:14px;margin:0">Scan with the other device (or open QuickWA there → cloud icon → “I already have a sync code”), then type your PIN.</p>' +
+      '<div class="qr-box"><canvas id="syQr"></canvas></div>' +
+      '<div class="sync-code">' + esc(Sync.fmtCode(c.code)) + '</div>' +
+      '<div class="btn-row"><button class="btn soft" id="syCopy" type="button"><svg><use href="#i-link"/></svg>Copy link</button><button class="btn soft" id="syBack" type="button">Done</button></div>',
+      function (root) {
+        try { drawQR($('#syQr', root), link); } catch (e) {}
+        $('#syCopy', root).onclick = function () { copyText(link, 'Link copied — PIN not included'); };
+        $('#syBack', root).onclick = closeSheet;
+      });
+  }
+  $('#syncBtn').addEventListener('click', function () { openSyncSheet(); });
+
+  /* =========================================================
+     CONTACTS
+     ========================================================= */
+  var editAll = false;
+  function contactByN(n) { if (!n) return null; for (var i = 0; i < contacts.length; i++) if (contacts[i].n === n) return contacts[i]; return null; }
+  function nameFor(n) { var c = contactByN(n); return c && c.name ? c.name : ''; }
+  function newId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  // Add or update one contact. Returns { c, existed }.
+  function upsertContact(name, n, noCommit) {
+    name = String(name || '').trim().slice(0, 80);
+    var c = contactByN(n);
+    if (c) { if (name && name !== c.name) c.name = name; if (!noCommit) commit('contacts'); return { c: c, existed: true }; }
+    c = { id: newId(), name: name, n: n, fav: false };
+    contacts.push(c);
+    if (!noCommit) commit('contacts');
+    return { c: c, existed: false };
+  }
+  function sortedContacts(q) {
+    q = (q || '').trim().toLowerCase(); var qd = digits(q);
+    return contacts.filter(function (c) {
+      if (!q) return true;
+      return (c.name || '').toLowerCase().indexOf(q) !== -1 || (qd.length >= 2 && c.n.indexOf(qd) !== -1) || (c.note || '').toLowerCase().indexOf(q) !== -1;
+    }).sort(function (a, b) {
+      if (!!b.fav !== !!a.fav) return b.fav ? 1 : -1;
+      var an = (a.name || '').trim(), bn = (b.name || '').trim();
+      if (!an !== !bn) return an ? -1 : 1;
+      return (an || a.n).localeCompare(bn || b.n, undefined, { sensitivity: 'base' });
+    });
+  }
+  function updateContactCount() {
+    var el = $('#cCount'); if (!el) return;
+    el.textContent = contacts.length ? contacts.length + ' contact' + (contacts.length === 1 ? '' : 's') : 'Contacts';
+  }
+  function contactRow(c) {
+    var title = c.name || pretty(c.n);
+    var sub = c.name ? pretty(c.n) : (isValid(c.n) ? 'No name' : '⚠ check number');
+    if (c.note) sub += ' · ' + c.note;
+    return '<li data-id="' + esc(c.id) + '">' +
+      '<button class="row-main" type="button" data-act="open" title="Open WhatsApp chat">' + avatar(c) +
+      '<span class="row-text"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span></span></button>' +
+      '<span class="row-actions">' +
+      '<button class="icon-btn ghost sm pin' + (c.fav ? ' on' : '') + '" type="button" data-act="fav" aria-label="Favourite"><svg><use href="#i-star"/></svg></button>' +
+      '<button class="icon-btn ghost sm" type="button" data-act="edit" aria-label="Edit"><svg><use href="#i-edit"/></svg></button>' +
+      '<button class="icon-btn ghost sm" type="button" data-act="more" aria-label="More"><svg><use href="#i-down"/></svg></button>' +
+      '</span></li>';
+  }
+  function editFields(c) {
+    return '<span class="edit-fields"><input type="text" class="e-name" value="' + esc(c.name) + '" placeholder="Name" enterkeyhint="next" autocomplete="off" spellcheck="false">' +
+      '<input type="tel" inputmode="tel" class="e-num good" value="' + esc(pretty(c.n)) + '" placeholder="Number" enterkeyhint="done" autocomplete="off"></span>';
+  }
+  function renderContacts() {
+    var list = sortedContacts($('#cSearch').value);
+    var ul = $('#contactList');
+    ul.classList.toggle('edit-all', editAll);
+    if (editAll) {
+      ul.innerHTML = list.map(function (c) {
+        return '<li data-id="' + esc(c.id) + '">' + editFields(c) +
+          '<button class="icon-btn ghost sm" type="button" data-act="del" aria-label="Delete" style="color:var(--danger)"><svg><use href="#i-trash"/></svg></button></li>';
+      }).join('');
+    } else {
+      ul.innerHTML = list.map(contactRow).join('');
+    }
+    $('#cEmpty').hidden = contacts.length > 0;
+    $('#cEditAll').textContent = editAll ? 'Done' : 'Edit list';
+    $('#cEditAll').hidden = !contacts.length;
+    updateContactCount();
+  }
+  function findC(id) { for (var i = 0; i < contacts.length; i++) if (contacts[i].id === id) return contacts[i]; return null; }
+  function checkNum(inp) {
+    var v = inp.value.trim(), n = normalize(v), ok = !!v && isValid(n);
+    inp.classList.toggle('bad', !ok); inp.classList.toggle('good', ok);
+    return ok ? n : null;
+  }
+  function deleteContact(c) {
+    var backup = Object.assign({}, c);
+    contacts = contacts.filter(function (x) { return x.id !== c.id; });
+    commit('contacts'); renderContacts();
+    toast('Deleted ' + (c.name || pretty(c.n)), { action: 'Undo', fn: function () { if (!contactByN(backup.n)) { contacts.push(backup); commit('contacts'); renderContacts(); } } });
+  }
+
+  // ---- quick add ----
+  var qaName = $('#qaName'), qaPhone = $('#qaPhone');
+  function qaUpdate() {
+    var v = qaPhone.value.trim(), n = normalize(v), row = $('.qa-row'), hint = $('#qaHint');
+    row.classList.remove('valid', 'invalid'); hint.className = 'hint';
+    if (!v) { hint.textContent = 'Type a name, press Enter, type the number, press Enter — saved.'; return; }
+    if (isValid(n)) {
+      row.classList.add('valid'); hint.className = 'hint ok';
+      var ex = contactByN(n);
+      hint.textContent = '✓ ' + pretty(n) + (ex ? ' · already saved as ' + (ex.name || 'no name') + ' — will update' : '');
+    } else { row.classList.add('invalid'); hint.className = 'hint warn'; hint.textContent = digits(v).length < 6 ? 'Keep typing…' : 'Number looks incomplete'; }
+  }
+  function qaSave() {
+    var raw = qaPhone.value.trim();
+    if (!raw) { (qaName.value.trim() ? qaPhone : qaName).focus(); return; }
+    var link = parseWaLink(raw); if (link) raw = '+' + link.n;
+    var n = normalize(raw);
+    if (!isValid(n)) { $('.qa-row').classList.remove('shake'); void $('.qa-row').offsetWidth; $('.qa-row').classList.add('shake'); qaPhone.focus(); return; }
+    var r = upsertContact(qaName.value, n);
+    buzz();
+    toast((r.existed ? 'Updated ' : 'Saved ') + (r.c.name || pretty(n)), { action: 'Chat', fn: function () { openContact(r.c); } });
+    qaName.value = ''; qaPhone.value = ''; qaUpdate();
+    $('#cSearch').value = ''; renderContacts();
+    qaName.focus();
+  }
+  qaName.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); qaPhone.focus(); } });
+  qaPhone.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); qaSave(); } });
+  qaPhone.addEventListener('input', qaUpdate);
+  qaPhone.addEventListener('paste', function (e) {
+    var t = (e.clipboardData || window.clipboardData); t = t ? t.getData('text') : '';
+    var list = t ? parseRecipients(t) : [];
+    if (list.length > 1) { e.preventDefault(); openImportSheet(list, 'Pasted'); }
+    else if (list.length === 1 && list[0].name && !qaName.value.trim()) { e.preventDefault(); qaName.value = list[0].name; qaPhone.value = pretty(list[0].n); qaUpdate(); }
+  });
+  $('#qaAdd').addEventListener('click', qaSave);
+
+  function openContact(c) {
+    var text = msgEl.value.trim() ? fill(msgEl.value, c, 0) : '';
+    buzz(); addHistory(c.n, text, c.name); launch(buildUrl(c.n, text, resolveKind()), resolveKind());
+  }
+
+  // ---- list clicks ----
+  $('#contactList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var li = b.closest('li'); var c = findC(li.dataset.id); if (!c) return;
+    var act = b.dataset.act;
+    if (act === 'open') openContact(c);
+    else if (act === 'fav') { c.fav = !c.fav; commit('contacts'); renderContacts(); }
+    else if (act === 'del') { deleteContact(c); }
+    else if (act === 'edit') startInlineEdit(li, c);
+    else if (act === 'save') finishInlineEdit(li, c, true);
+    else if (act === 'cancel') renderContacts();
+    else if (act === 'more') openContactMenu(c);
+  });
+  function startInlineEdit(li, c) {
+    var open = $('#contactList li.editing'); if (open && open !== li) renderContacts();
+    li = $('#contactList li[data-id="' + c.id + '"]') || li;
+    li.classList.add('editing');
+    li.innerHTML = editFields(c) +
+      '<button class="icon-btn ghost sm go-btn" type="button" data-act="save" aria-label="Save"><svg><use href="#i-check"/></svg></button>' +
+      '<button class="icon-btn ghost sm" type="button" data-act="cancel" aria-label="Cancel"><svg><use href="#i-x"/></svg></button>';
+    var nm = $('.e-name', li), nu = $('.e-num', li);
+    nm.focus(); try { nm.setSelectionRange(nm.value.length, nm.value.length); } catch (er) {}
+    nm.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); nu.focus(); } else if (e.key === 'Escape') { e.stopPropagation(); renderContacts(); } });
+    nu.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finishInlineEdit(li, c, true); } else if (e.key === 'Escape') { e.stopPropagation(); renderContacts(); } });
+    nu.addEventListener('input', function () { checkNum(nu); });
+  }
+  function finishInlineEdit(li, c, close) {
+    var nm = $('.e-name', li), nu = $('.e-num', li);
+    var n = checkNum(nu);
+    if (!n) { nu.focus(); toast('Check the number'); return false; }
+    var other = contactByN(n);
+    if (other && other.id !== c.id) { toast('That number is already saved as ' + (other.name || pretty(n))); nu.focus(); return false; }
+    var oldN = c.n;
+    c.name = nm.value.trim().slice(0, 80); c.n = n;
+    commit('contacts');
+    if (oldN !== n) { var h = history.find(function (x) { return x.n === oldN; }); if (h && !history.some(function (x) { return x.n === n; })) { h.n = n; commit('history'); } }
+    if (close) { renderContacts(); toast('Saved'); }
+    return true;
+  }
+
+  // ---- edit-all mode: every name & number editable, saves as you type ----
+  var editAllSave = debounce(function () { commit('contacts'); }, 500);
+  $('#contactList').addEventListener('input', function (e) {
+    if (!editAll) return;
+    var li = e.target.closest('li'); var c = li && findC(li.dataset.id); if (!c) return;
+    if (e.target.classList.contains('e-name')) { c.name = e.target.value.trim().slice(0, 80); editAllSave(); }
+    else if (e.target.classList.contains('e-num')) {
+      var n = checkNum(e.target);
+      if (n && n !== c.n) {
+        var other = contactByN(n);
+        if (other && other.id !== c.id) { e.target.classList.add('bad'); e.target.classList.remove('good'); e.target.title = 'Already saved as ' + (other.name || pretty(n)); return; }
+        c.n = n; editAllSave();
+      }
+    }
+  });
+  $('#contactList').addEventListener('keydown', function (e) {
+    if (!editAll || e.key !== 'Enter') return;
+    e.preventDefault();
+    var inputs = $$('#contactList input'); var i = inputs.indexOf(e.target);
+    if (i > -1 && inputs[i + 1]) inputs[i + 1].focus(); else e.target.blur();
+  });
+  $('#contactList').addEventListener('focusout', function (e) {
+    if (!editAll || !e.target.classList.contains('e-num')) return;
+    var li = e.target.closest('li'); var c = li && findC(li.dataset.id); if (!c) return;
+    if (!checkNum(e.target) || normalize(e.target.value) !== c.n) { e.target.value = pretty(c.n); checkNum(e.target); }
+    else e.target.value = pretty(c.n);
+  });
+  $('#cEditAll').addEventListener('click', function () {
+    if (editAll) { editAllSave(); commit('contacts'); }
+    editAll = !editAll; renderContacts();
+    if (editAll) { var f = $('#contactList input'); if (f && !isMobile) f.focus(); toast('Edit names & numbers directly — changes save automatically'); }
+  });
+  $('#cSearch').addEventListener('input', function () { renderContacts(); });
+
+  function vcardOf(c) { return 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:' + (c.name || ('+' + c.n)).replace(/[\r\n]/g, ' ') + '\r\nTEL;TYPE=CELL:+' + c.n + '\r\nEND:VCARD\r\n'; }
+  function openContactMenu(c) {
+    openSheet(c.name || pretty(c.n),
+      '<label class="field-label" for="cmName">Name</label><input type="text" id="cmName" value="' + esc(c.name) + '" placeholder="Name" autocomplete="off">' +
+      '<label class="field-label" for="cmNum">Number</label><input type="tel" id="cmNum" value="' + esc(pretty(c.n)) + '" autocomplete="off">' +
+      '<label class="field-label" for="cmNote">Note <span class="muted">optional</span></label><input type="text" id="cmNote" value="' + esc(c.note || '') + '" placeholder="e.g. plumber, client, school" autocomplete="off">' +
+      '<div class="btn-row"><button class="btn primary" id="cmSave" type="button">Save</button><button class="btn soft" id="cmChat" type="button"><svg><use href="#i-send"/></svg>Chat</button></div>' +
+      '<div class="btn-row three"><a class="btn soft" id="cmCall" href="tel:+' + c.n + '"><svg><use href="#i-phone"/></svg>Call</a><button class="btn soft" id="cmCopy" type="button"><svg><use href="#i-copy"/></svg>Copy</button><button class="btn soft" id="cmShare" type="button"><svg><use href="#i-share"/></svg>Share</button></div>' +
+      '<div class="btn-row"><button class="btn soft" id="cmQr" type="button"><svg><use href="#i-qr"/></svg>QR code</button><button class="btn soft" id="cmDel" type="button" style="color:var(--danger)"><svg><use href="#i-trash"/></svg>Delete</button></div>',
+      function (root) {
+        var nu = $('#cmNum', root);
+        nu.addEventListener('input', function () { checkNum(nu); });
+        var save = function () {
+          var n = checkNum(nu); if (!n) { toast('Check the number'); nu.focus(); return; }
+          var other = contactByN(n); if (other && other.id !== c.id) { toast('Already saved as ' + (other.name || pretty(n))); return; }
+          c.name = $('#cmName', root).value.trim().slice(0, 80); c.n = n;
+          var note = $('#cmNote', root).value.trim().slice(0, 80); if (note) c.note = note; else delete c.note;
+          commit('contacts'); closeSheet(); renderContacts(); toast('Saved');
+        };
+        $('#cmSave', root).onclick = save;
+        [$('#cmName', root), nu, $('#cmNote', root)].forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') save(); }); });
+        $('#cmChat', root).onclick = function () { closeSheet(); openContact(c); };
+        $('#cmCopy', root).onclick = function () { copyText('+' + c.n, 'Number copied'); };
+        $('#cmShare', root).onclick = function () {
+          var txt = (c.name ? c.name + ': ' : '') + '+' + c.n;
+          try {
+            var file = new File([vcardOf(c)], (c.name || c.n).replace(/[^\w\- ]+/g, '') + '.vcf', { type: 'text/vcard' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: c.name || '' }).catch(function () {}); return; }
+          } catch (er) {}
+          if (navigator.share) navigator.share({ text: txt }).catch(function () {}); else copyText(txt, 'Copied');
+        };
+        $('#cmQr', root).onclick = function () { showQR(c.n, ''); };
+        $('#cmDel', root).onclick = function () { closeSheet(); deleteContact(c); };
+      });
+  }
+
+  // ---- import (paste / phone / file) with preview ----
+  function openImportSheet(list, source) {
+    if (!list.length) { toast('No phone numbers found'); return; }
+    openSheet((source || 'Import') + ' · ' + list.length + ' number' + (list.length === 1 ? '' : 's'),
+      '<div class="label-row" style="margin-top:0"><span class="muted" style="font-size:14px">Fix names before saving if you like.</span><button class="link" id="imAll" type="button">Select all</button></div>' +
+      '<ul class="pick-list" id="imList">' + list.map(function (p, i) {
+        var ex = contactByN(p.n);
+        return '<li><label><input type="checkbox" data-i="' + i + '"' + (p.valid ? ' checked' : '') + '>' +
+          '<span class="row-text"><input type="text" class="im-name" data-i="' + i + '" value="' + esc(p.name || (ex && ex.name) || '') + '" placeholder="Name" style="padding:7px 10px;font-size:15px">' +
+          '<span class="' + (p.valid ? '' : 'bad') + '">' + esc(pretty(p.n)) + (ex ? ' · already saved' : '') + (p.valid ? '' : ' · looks invalid') + '</span></span></label></li>';
+      }).join('') + '</ul>' +
+      '<button class="btn primary big" id="imSave" type="button">Save</button>',
+      function (root) {
+        var count = function () { var k = $$('#imList input[type=checkbox]:checked', root).length; $('#imSave', root).textContent = 'Save ' + k + ' contact' + (k === 1 ? '' : 's'); $('#imSave', root).disabled = !k; };
+        count();
+        $('#imList', root).addEventListener('change', count);
+        $('#imList', root).addEventListener('click', function (e) { if (e.target.classList.contains('im-name')) e.preventDefault(); });
+        $('#imAll', root).onclick = function () { var bs = $$('#imList input[type=checkbox]', root); var all = bs.every(function (b) { return b.checked; }); bs.forEach(function (b) { b.checked = !all; }); count(); };
+        $('#imSave', root).onclick = function () {
+          var added = 0, upd = 0;
+          $$('#imList input[type=checkbox]:checked', root).forEach(function (b) {
+            var i = +b.dataset.i, p = list[i], nm = $('.im-name[data-i="' + i + '"]', root).value;
+            var r = upsertContact(nm, p.n, true); if (r.existed) upd++; else added++;
+          });
+          commit('contacts'); closeSheet(); showTab('contacts'); renderContacts();
+          toast('Saved ' + added + ' new' + (upd ? ', updated ' + upd : ''));
+        };
+      });
+  }
+  $('#cPaste').addEventListener('click', async function () {
+    var t = '';
+    try { t = await navigator.clipboard.readText(); } catch (e) { qaPhone.focus(); toast('Long-press the number box and paste'); return; }
+    if (!t.trim()) { toast('Clipboard is empty'); return; }
+    var link = parseWaLink(t);
+    var list = link ? [{ n: link.n, name: '', valid: isValid(link.n) }] : parseRecipients(t);
+    if (!list.length) { toast('No phone number found in what you copied'); return; }
+    if (list.length === 1) {
+      var p = list[0];
+      if (p.name && !qaName.value.trim()) qaName.value = p.name;
+      qaPhone.value = pretty(p.n); qaUpdate();
+      if (qaName.value.trim() && p.valid) qaSave(); else { qaName.focus(); toast('Number pasted — add a name and press Enter'); }
+      return;
+    }
+    openImportSheet(list, 'Pasted');
+  });
+  if ('contacts' in navigator && navigator.contacts && navigator.contacts.select) {
+    $('#cPhone').hidden = false;
+    $('#cPhone').addEventListener('click', async function () {
+      try {
+        var res = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+        var seen = {}, list = [];
+        (res || []).forEach(function (r) {
+          var nm = (r.name && r.name[0]) || '';
+          (r.tel || []).forEach(function (t) { var n = normalize(t); if (n && !seen[n]) { seen[n] = 1; list.push({ n: n, name: nm, valid: isValid(n) }); } });
+        });
+        if (list.length) openImportSheet(list, 'From phone');
+      } catch (e) { toast('Could not open phone contacts'); }
+    });
+  }
+  $('#cImport').addEventListener('click', function () { $('#cFile').click(); });
+  $('#cFile').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { openImportSheet(parseRecipients(String(r.result)), f.name); };
+    r.readAsText(f); e.target.value = '';
+  });
+  $('#cMore').addEventListener('click', function () {
+    var list = sortedContacts($('#cSearch').value);
+    openSheet('Contacts',
+      '<div class="btn-row"><button class="btn soft" id="cxBulk" type="button"><svg><use href="#i-users"/></svg>Send to Bulk (' + list.length + ')</button></div>' +
+      '<div class="btn-row"><button class="btn soft" id="cxVcf" type="button"><svg><use href="#i-file"/></svg>Export .vcf</button><button class="btn soft" id="cxCsv" type="button"><svg><use href="#i-file"/></svg>Export CSV</button></div>' +
+      '<div class="btn-row"><button class="btn soft" id="cxSync" type="button"><svg><use href="#i-cloud"/></svg>Cloud sync</button></div>' +
+      '<div class="btn-row"><button class="btn soft" id="cxDel" type="button" style="color:var(--danger)"><svg><use href="#i-trash"/></svg>Delete all contacts</button></div>',
+      function (root) {
+        $('#cxBulk', root).onclick = function () { closeSheet(); addToBulk(list); };
+        $('#cxVcf', root).onclick = function () { if (!contacts.length) return toast('No contacts'); downloadBlob(new Blob([sortedContacts('').map(vcardOf).join('')], { type: 'text/vcard' }), 'quickwa-contacts.vcf'); };
+        $('#cxCsv', root).onclick = function () { if (!contacts.length) return toast('No contacts'); downloadCSV([['name', 'number', 'note', 'favourite']].concat(sortedContacts('').map(function (c) { return [c.name || '', '+' + c.n, c.note || '', c.fav ? 'yes' : '']; })), 'quickwa-contacts.csv'); };
+        $('#cxSync', root).onclick = function () { openSyncSheet(); };
+        $('#cxDel', root).onclick = function () {
+          if (!contacts.length || !confirm('Delete all ' + contacts.length + ' contacts' + (Sync.cfg ? ' on every synced device' : '') + '?')) return;
+          var backup = contacts.slice(); contacts = []; commit('contacts'); closeSheet(); renderContacts();
+          toast('All contacts deleted', { action: 'Undo', fn: function () { contacts = backup; commit('contacts'); renderContacts(); } });
+        };
+      });
+  });
+  function addToBulk(list) {
+    if (!list.length) { toast('No contacts'); return; }
+    var bi = $('#bulkInput');
+    bi.value = (bi.value.trim() ? bi.value.trim() + '\n' : '') + list.map(function (c) { return (c.name ? c.name.replace(/[,;]/g, ' ') + ', ' : '') + '+' + c.n; }).join('\n');
+    saveBulkDraft(); showTab('bulk'); onBulkInput();
+    toast(list.length + ' contact' + (list.length === 1 ? '' : 's') + ' added to Bulk');
+  }
+  $('#bulkFromContacts').addEventListener('click', function () {
+    if (!contacts.length) { toast('No saved contacts yet'); return; }
+    var all = sortedContacts('');
+    openSheet('Pick contacts',
+      '<input type="search" id="pkSearch" placeholder="Search" autocomplete="off">' +
+      '<div class="label-row"><span class="muted" id="pkCount" style="font-size:14px"></span><button class="link" id="pkAll" type="button">Select all</button></div>' +
+      '<ul class="pick-list" id="pkList">' + all.map(function (c) {
+        return '<li data-q="' + esc(((c.name || '') + ' ' + c.n).toLowerCase()) + '"><label><input type="checkbox" data-id="' + esc(c.id) + '">' + avatar(c) +
+          '<span class="row-text"><b>' + esc(c.name || pretty(c.n)) + '</b><span>' + esc(c.name ? pretty(c.n) : '') + '</span></span></label></li>';
+      }).join('') + '</ul><button class="btn primary big" id="pkGo" type="button">Add</button>',
+      function (root) {
+        var count = function () { var k = $$('#pkList input:checked', root).length; $('#pkCount', root).textContent = k + ' selected'; $('#pkGo', root).textContent = 'Add ' + k + ' to recipients'; $('#pkGo', root).disabled = !k; };
+        count();
+        $('#pkList', root).addEventListener('change', count);
+        $('#pkSearch', root).addEventListener('input', function () { var q = this.value.trim().toLowerCase(), qd = digits(q); $$('#pkList li', root).forEach(function (li) { li.hidden = !!q && li.dataset.q.indexOf(qd.length > 1 ? qd : q) === -1 && li.dataset.q.indexOf(q) === -1; }); });
+        $('#pkAll', root).onclick = function () { var bs = $$('#pkList li:not([hidden]) input', root); var a = bs.every(function (b) { return b.checked; }); bs.forEach(function (b) { b.checked = !a; }); count(); };
+        $('#pkGo', root).onclick = function () { var ids = {}; $$('#pkList input:checked', root).forEach(function (b) { ids[b.dataset.id] = 1; }); closeSheet(); addToBulk(all.filter(function (c) { return ids[c.id]; })); };
+      });
+  });
+
+  // ---- save from Chat tab ----
+  function openSaveSheet(n) {
+    var ex = contactByN(n);
+    openSheet(ex ? 'Edit contact' : 'Save contact',
+      '<label class="field-label" for="svName">Name</label><input type="text" id="svName" value="' + esc(ex ? ex.name : '') + '" placeholder="e.g. Arta, Plumber, Client X" autocomplete="off" enterkeyhint="done">' +
+      '<label class="field-label" for="svNum">Number</label><input type="tel" id="svNum" value="' + esc(pretty(n)) + '" autocomplete="off">' +
+      '<button class="btn primary big" id="svGo" type="button">' + (ex ? 'Save changes' : 'Save contact') + '</button>',
+      function (root) {
+        var nu = $('#svNum', root); checkNum(nu); nu.addEventListener('input', function () { checkNum(nu); });
+        var go = function () {
+          var n2 = checkNum(nu); if (!n2) { toast('Check the number'); return; }
+          var name = $('#svName', root).value;
+          if (ex) { var other = contactByN(n2); if (other && other !== ex) { toast('Already saved as ' + (other.name || pretty(n2))); return; } ex.name = name.trim().slice(0, 80); ex.n = n2; commit('contacts'); }
+          else upsertContact(name, n2);
+          closeSheet(); updatePhoneUI(); renderRecentQuick(); toast('Saved to contacts'); buzz();
+        };
+        $('#svGo', root).onclick = go;
+        $('#svName', root).addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+        nu.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+        setTimeout(function () { $('#svName', root).focus(); }, 80);
+      });
+  }
+  $('#savePhone').addEventListener('click', function () { var n = currentNumber(); if (isValid(n)) openSaveSheet(n); });
+  $('#phoneMatches').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cid]'); if (!b) return;
+    var c = findC(b.dataset.cid); if (!c) return;
+    phoneEl.value = '+' + c.n; updatePhoneUI(); saveDraft();
+    if (!isMobile) msgEl.focus();
+  });
+  function renderPhoneMatches() {
+    var box = $('#phoneMatches'); var raw = phoneEl.value.trim(); var d = digits(raw);
+    if (!contacts.length || !raw) { box.innerHTML = ''; return; }
+    var n = normalize(raw);
+    var q = raw.toLowerCase();
+    var hits = contacts.filter(function (c) {
+      if (c.n === n) return false;
+      return (d.length >= 3 && (c.n.indexOf(d) !== -1 || c.n.indexOf(d.replace(/^0+/, '')) !== -1)) || (/[a-z]/i.test(raw) && (c.name || '').toLowerCase().indexOf(q) !== -1);
+    }).slice(0, 6);
+    box.innerHTML = hits.map(function (c) { return '<button type="button" class="chip" data-cid="' + esc(c.id) + '">' + esc((c.name ? c.name + ' · ' : '') + pretty(c.n)) + '</button>'; }).join('');
+  }
+
+  /* =========================================================
      SETTINGS
      ========================================================= */
   function sw(id, on) { return '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><span></span></label>'; }
@@ -1018,8 +1728,10 @@
       '<div class="setting"><div class="s-text"><b>Open chats with</b><span>“Auto” = app on phones, WhatsApp Web on computers</span></div><select id="sOpen">' +
         '<option value="auto">Auto (fastest)</option><option value="app">WhatsApp app</option><option value="web">WhatsApp Web</option><option value="wa">wa.me link</option></select></div>' +
       '<div class="setting"><div class="s-text"><b>Paste &amp; Chat opens instantly</b><span>Skip the extra tap after pasting</span></div>' + sw('sInstant', settings.instantPaste) + '</div>' +
-      '<div class="setting"><div class="s-text"><b>Keep history</b><span>Stored only on this device</span></div>' + sw('sHist', settings.saveHistory) + '</div>' +
+      '<div class="setting"><div class="s-text"><b>Keep history</b><span>On this device (and synced devices, if sync is on)</span></div>' + sw('sHist', settings.saveHistory) + '</div>' +
       '<div class="setting"><div class="s-text"><b>Theme</b></div><select id="sTheme"><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>' +
+      '<p class="sheet-section">Cloud sync</p>' +
+      '<div class="setting"><div class="s-text"><b>Sync between devices</b><span id="sSyncState">' + esc(Sync.cfg ? syncLabel(Sync.state) : 'Off — data stays on this device') + '</span></div><button class="btn soft sm" id="sSync" type="button">' + (Sync.cfg ? 'Manage' : 'Set up') + '</button></div>' +
       '<p class="sheet-section">Backup</p>' +
       '<div class="btn-row"><button class="btn soft" id="sExport" type="button">Export backup</button><button class="btn soft" id="sImport" type="button">Import backup</button></div>' +
       '<input type="file" id="sImportFile" accept=".json,application/json" hidden>' +
@@ -1028,6 +1740,7 @@
       '<div class="btn-row" style="margin-top:18px"><button class="btn soft" id="sReset" type="button" style="color:var(--danger)">Reset app data</button></div>',
       function (root) {
         $('#sOpen', root).value = settings.openWith;
+        $('#sSync', root).onclick = function () { openSyncSheet(); };
         $('#sTheme', root).value = settings.theme;
         $('#sCC', root).onclick = function () { openCountryPicker(function () { updatePhoneUI(); onBulkInput(); openSettings(); }); };
         $('#sOpen', root).onchange = function () { settings.openWith = this.value; saveSettings(); };
@@ -1035,7 +1748,7 @@
         $('#sInstant', root).onchange = function () { settings.instantPaste = this.checked; saveSettings(); };
         $('#sHist', root).onchange = function () { settings.saveHistory = this.checked; saveSettings(); };
         $('#sExport', root).onclick = function () {
-          var data = { app: 'QuickWA', v: 3, exported: new Date().toISOString(), settings: settings, templates: templates, history: history };
+          var data = { app: 'QuickWA', v: 4, exported: new Date().toISOString(), settings: settings, templates: templates, history: history, contacts: contacts };
           downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'quickwa-backup.json');
         };
         $('#sImport', root).onclick = function () { $('#sImportFile', root).click(); };
@@ -1047,9 +1760,13 @@
               var d = JSON.parse(r.result);
               if (d.settings) { settings = Object.assign({}, DEFAULTS, d.settings); saveSettings(); applyTheme(); }
               if (Array.isArray(d.templates)) { templates = d.templates; saveTemplates(); }
+              if (Array.isArray(d.contacts)) {
+                d.contacts.forEach(function (c) { if (c && c.n) { var r = upsertContact(c.name, String(c.n), true); if (c.note) r.c.note = c.note; if (c.fav) r.c.fav = true; } });
+                commit('contacts'); renderContacts();
+              }
               if (Array.isArray(d.history)) {
                 var map = {}; history.concat(d.history).forEach(function (h) { if (h && h.n && (!map[h.n] || map[h.n].t < h.t)) map[h.n] = h; });
-                history = sortHist(Object.keys(map).map(function (k) { return map[k]; })); store.set('history', history);
+                history = sortHist(Object.keys(map).map(function (k) { return map[k]; })); commit('history');
               }
               closeSheet(); updatePhoneUI(); renderRecentQuick(); toast('Backup restored');
             } catch (er) { toast('That file is not a QuickWA backup'); }
@@ -1057,7 +1774,7 @@
           r.readAsText(f);
         };
         $('#sReset', root).onclick = function () {
-          if (!confirm('Delete history, templates, drafts and settings on this device?')) return;
+          if (!confirm('Delete contacts, history, templates, drafts and settings on this device?' + (Sync.cfg ? ' (The cloud copy is kept.)' : ''))) return;
           Object.keys(localStorage).forEach(function (k) { if (k.indexOf(KEY) === 0) localStorage.removeItem(k); });
           location.reload();
         };
@@ -1076,7 +1793,7 @@
       else if (e.key === 's' || e.key === 'S') goNext('k');
       else if (e.key === 'b' || e.key === 'B') goBack();
     }
-    if (e.key === '1') showTab('chat'); else if (e.key === '2') showTab('bulk'); else if (e.key === '3') showTab('history');
+    if (e.key === '1') showTab('chat'); else if (e.key === '2') showTab('contacts'); else if (e.key === '3') showTab('bulk'); else if (e.key === '4') showTab('history');
   });
 
   /* ---------------- install prompt ---------------- */
@@ -1123,21 +1840,28 @@
       startTab = 'chat';
       ingestText([sharedTitle, t, sharedUrl].filter(Boolean).join('\n'), { fromShare: true });
     }
+    var syncParam = q.get('sync');
+    if (syncParam) setTimeout(function () {
+      if (Sync.cfg && Sync.cfg.code === Sync.cleanCode(syncParam)) toast('This device is already synced');
+      else openSyncSheet('connect', syncParam);
+    }, 300);
     if (q.get('action') === 'paste') { startTab = 'chat'; setTimeout(function () { $('#pasteGo').classList.add('pulse'); }, 300); }
     if (location.search) history_replace();
 
-    if (!['chat', 'bulk', 'history'].includes(startTab)) startTab = 'chat';
+    if (!['chat', 'contacts', 'bulk', 'history'].includes(startTab)) startTab = 'chat';
     updatePhoneUI();
     renderTplChips();
     renderBulkTplChips();
     renderAdvance();
     onBulkInput();
     showTab(startTab, true);
+    updateContactCount();
+    if (Sync.cfg) setTimeout(Sync.run, 700);
     if (p && isValid(currentNumber())) { var b = $('#openBtn'); b.classList.add('pulse'); }
     if (!isMobile && startTab === 'chat') phoneEl.focus();
   })();
   function history_replace() { try { window.history.replaceState(null, '', location.pathname); } catch (e) {} }
 
   // expose for tests
-  window.QuickWA = { normalize: normalize, isValid: isValid, pretty: pretty, parseRecipients: parseRecipients, parseWaLink: parseWaLink, fill: fill, buildUrl: buildUrl, extractNumbers: extractNumbers };
+  window.QuickWA = { mergeDocs: mergeDocs, canon: canon, Sync: Sync, normalize: normalize, isValid: isValid, pretty: pretty, parseRecipients: parseRecipients, parseWaLink: parseWaLink, fill: fill, buildUrl: buildUrl, extractNumbers: extractNumbers };
 })();

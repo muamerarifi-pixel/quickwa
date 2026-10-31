@@ -17,6 +17,7 @@
     { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
   ],
   "shortcuts": [
+    { "name": "Contacts", "short_name": "Contacts", "url": "/?tab=contacts", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Paste & Chat", "short_name": "Paste", "url": "/?action=paste", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Bulk send", "short_name": "Bulk", "url": "/?tab=bulk", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "History", "short_name": "History", "url": "/?tab=history", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }

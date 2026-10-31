@@ -270,3 +270,47 @@ textarea { resize: vertical; min-height: 84px; }
 @media (hover: hover) and (pointer: fine) { .desktop-only { display: revert; } }
 .mobile .desktop-only { display: none !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ---------- v4: contacts, sync ---------- */
+.sync-btn { position: relative; color: var(--muted); }
+.sync-btn i { position: absolute; right: 7px; bottom: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--line); border: 2px solid var(--surface); }
+.sync-btn[data-state="ok"] { color: var(--brand); }
+.sync-btn[data-state="ok"] i { background: var(--ok); }
+.sync-btn[data-state="syncing"] i { background: var(--brand); animation: blink 1s infinite; }
+.sync-btn[data-state="offline"] i { background: var(--warn); }
+.sync-btn[data-state="error"] i { background: var(--danger); }
+@keyframes blink { 50% { opacity: .2; } }
+.save-phone { color: var(--brand) !important; }
+.quick-add .qa-row { display: flex; gap: 8px; }
+.quick-add .qa-row input { min-width: 0; }
+.quick-add #qaName { flex: 1.1; }
+.quick-add #qaPhone { flex: 1; font-weight: 600; }
+.quick-add .qa-add { min-height: 0; width: 50px; padding: 0; flex: none; }
+.quick-add .qa-row.invalid #qaPhone { border-color: var(--warn); }
+.quick-add .qa-row.valid #qaPhone { border-color: var(--ok); }
+.list.contacts li.editing, .list.contacts.edit-all li { gap: 8px; padding: 8px 10px; }
+.edit-fields { flex: 1; min-width: 0; display: flex; gap: 6px; }
+.edit-fields input { padding: 9px 10px !important; font-size: 15px !important; min-width: 0; border-radius: 10px !important; }
+.edit-fields .e-name { flex: 1.1; }
+.edit-fields .e-num { flex: 1; font-weight: 600; }
+.edit-fields .e-num.bad { border-color: var(--warn) !important; }
+.edit-fields .e-num.good { border-color: var(--ok) !important; }
+.list .row-actions .go-btn svg { width: 19px; height: 19px; }
+.pick-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 14px; }
+.pick-list li { border-top: 1px solid var(--line); }
+.pick-list li:first-child { border-top: 0; }
+.pick-list label { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; }
+.pick-list input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--brand); flex: none; }
+.pick-list .row-text { min-width: 0; flex: 1; }
+.pick-list .row-text b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick-list .row-text span { display: block; font-size: 13px; color: var(--muted); }
+.pick-list .bad { color: var(--warn); }
+.sync-code { font: 700 26px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-align: center; padding: 14px; border-radius: 14px; background: var(--brand-soft); margin: 6px 0 4px; user-select: all; }
+.pin-input { font: 700 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .4em; text-align: center; }
+.code-input { font: 700 20px/1 ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .12em; text-align: center; text-transform: uppercase; }
+.sheet-body .field-label { margin-top: 14px; }
+.sync-state { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin: 2px 0 6px; }
+.sync-state i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+.sync-state.error i { background: var(--danger); } .sync-state.offline i { background: var(--warn); }
+.tabbar { width: min(460px, calc(100% - 24px)); }
+.tab span { font-size: 11.5px; }

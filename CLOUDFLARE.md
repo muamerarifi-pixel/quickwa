@@ -1,15 +1,13 @@
 # QuickWA on Cloudflare Workers
 
-QuickWA, moved from Vercel (quickwa-vercel.vercel.app) to Cloudflare Workers.
+Address: https://quickwa.muamer-arifi.workers.dev (auto-deploys from this repo).
 
-It is a fully static, offline PWA: no server code, no database, no secrets. Everything runs on the device.
-
-- `public/` holds the app's files, byte-identical to the Vercel version on 11 Oct 2026, and served by Workers Static Assets (free, no request limit).
-- `public/_headers` carries over the headers from the old `vercel.json`.
-- `html_handling: auto-trailing-slash` matches Vercel's `cleanUrls: true` (`/index.html` redirects to `/`, as before).
+- `public/` is the PWA, served as static assets (free, never runs the Worker).
+- `src/worker.js` is a tiny sync API on `/api/sync/<id>`. It stores only end-to-end encrypted blobs
+  (AES-GCM, key derived from the sync code + PIN on the device). The server never sees contacts or the PIN.
+- Storage: the existing `doselog-data` KV namespace, keys prefixed `quickwa:` — no extra Cloudflare resource.
+- `public/sw.js` caches the app as `/` (not `/index.html`, which Cloudflare redirects) so it opens offline.
 
 ## Deploy
 
-Run `npm install` then `npx wrangler deploy`. It deploys to the existing `quickwa` Worker, so the address stays the same.
-
-Address: https://quickwa.muamer-arifi.workers.dev
+`npm install` then `npx wrangler deploy` (or just push to `main`).
