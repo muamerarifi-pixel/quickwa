@@ -1858,6 +1858,10 @@
     updateContactCount();
     if (Sync.cfg) setTimeout(Sync.run, 700);
     if (p && isValid(currentNumber())) { var b = $('#openBtn'); b.classList.add('pulse'); }
+    if (q.get('shared')) setTimeout(function () {
+      if (isValid(currentNumber())) { $('#openBtn').classList.add('pulse'); toast('Ready: tap Open in WhatsApp'); }
+      else if (!t) toast('Nothing to open was shared');
+    }, 250);
     if (!isMobile && startTab === 'chat') phoneEl.focus();
   })();
   function history_replace() { try { window.history.replaceState(null, '', location.pathname); } catch (e) {} }

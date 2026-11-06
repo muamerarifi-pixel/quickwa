@@ -9,6 +9,7 @@ export default {
     const url = new URL(request.url);
     const m = url.pathname.match(/^\/api\/sync\/([a-f0-9]{64})$/);
     if (url.pathname === '/api/ping') return reply({ ok: true, t: Date.now() });
+    if (url.pathname === '/share') return share(request, url);
     if (!m) {
       if (url.pathname.startsWith('/api/')) return reply({ error: 'not found' }, 404);
       return env.ASSETS.fetch(request);
@@ -39,3 +40,33 @@ export default {
     return reply({ error: 'method' }, 405);
   }
 };
+
+// Share to QuickWA (Android share menu): a number, a text, or a contact card (.vcf) → the app with it filled in.
+// One contact card becomes "Name + its mobile number"; several cards go through as they are (they land in Bulk).
+async function share(request, url) {
+  let text = '';
+  if (request.method === 'POST') {
+    try {
+      const fd = await request.formData();
+      const parts = ['title', 'text', 'url'].map((k) => fd.get(k)).filter((v) => typeof v === 'string' && v.trim());
+      for (const f of fd.getAll('file')) {
+        if (f && typeof f.text === 'function' && f.size < 512 * 1024) parts.push(await f.text());
+      }
+      text = parts.join('\n');
+    } catch (e) { text = ''; }
+  } else {
+    text = ['title', 'text', 'url'].map((k) => url.searchParams.get(k)).filter(Boolean).join('\n');
+  }
+  const cards = text.match(/BEGIN:VCARD[\s\S]*?END:VCARD/gi) || [];
+  if (cards.length === 1) {
+    const card = cards[0].replace(/\r?\n[ \t]/g, ''); // unfold long lines
+    const fn = (card.match(/^FN[^:\n]*:(.*)$/im) || [])[1] || '';
+    const tels = [...card.matchAll(/^(?:item\d+\.)?TEL([^:\n]*):(.*)$/gim)].map((m) => ({ type: m[1].toUpperCase(), n: m[2].trim() }));
+    const tel = tels.find((t) => /CELL|MOBILE/.test(t.type)) || tels[0];
+    if (tel) text = (fn.trim() ? fn.trim() + '\n' : '') + tel.n;
+  }
+  const to = new URL('/', url);
+  to.searchParams.set('shared', '1');
+  if (text) to.searchParams.set('text', text.slice(0, 4000));
+  return Response.redirect(to.toString(), 303);
+}

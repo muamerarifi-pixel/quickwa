@@ -3,7 +3,7 @@
    Browsers refuse a redirected response for a page load, so offline start failed.
    Now the page is cached as "/", redirects are cleaned, and the network is given
    only a short time before the cached copy is used. */
-const VERSION = 'quickwa-v4.0.0';
+const VERSION = 'quickwa-v4.1.0';
 const SHELL = '/';
 const ASSETS = [
   '/',

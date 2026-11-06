@@ -11,7 +11,7 @@
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/share"]
   },
   "kv_namespaces": [
     { "binding": "KV", "id": "78f99b4a42fc4a968a7319f50d262a8f" }

@@ -23,8 +23,14 @@
     { "name": "History", "short_name": "History", "url": "/?tab=history", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ],
   "share_target": {
-    "action": "/",
-    "method": "GET",
-    "params": { "title": "title", "text": "text", "url": "url" }
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [{ "name": "file", "accept": ["text/vcard", "text/x-vcard", "text/directory", ".vcf", "text/plain", ".txt"] }]
+    }
   }
 }
